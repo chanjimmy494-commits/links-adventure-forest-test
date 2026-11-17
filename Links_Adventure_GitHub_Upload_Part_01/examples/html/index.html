@@ -1,17 +1,26 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
+<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>Link's Adventure — Forest Prototype</title>
 <style>
   html, body { margin: 0; height: 100%; background: #17181d; color: #ddd; font: 14px/1.4 system-ui, sans-serif; overflow: hidden; }
   canvas { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
-  #hud { position: fixed; left: 10px; top: 8px; background: #000a; padding: 6px 10px; border-radius: 4px; white-space: pre; }
+  #hud { position: fixed; left: 10px; top: 8px; background: #000a; padding: 6px 10px; border-radius: 4px; white-space: pre; pointer-events:none; max-width:calc(100vw - 20px); }
+  #touchpad { display:none; position:fixed; left:max(14px,env(safe-area-inset-left)); bottom:max(18px,env(safe-area-inset-bottom)); width:174px; height:174px; z-index:10; touch-action:none; user-select:none; -webkit-user-select:none; }
+  #touchpad .disc {position:absolute;inset:5px;border-radius:50%;background:rgba(20,24,31,.52);border:2px solid rgba(255,255,255,.36);box-shadow:0 2px 15px #0007;}
+  #touchpad .cross {position:absolute;left:50%;top:50%;width:104px;height:104px;transform:translate(-50%,-50%);background:rgba(255,255,255,.14);clip-path:polygon(35% 0,65% 0,65% 35%,100% 35%,100% 65%,65% 65%,65% 100%,35% 100%,35% 65%,0 65%,0 35%,35% 35%);}
+  #touchpad .thumb {position:absolute;left:50%;top:50%;width:54px;height:54px;transform:translate(-50%,-50%);border-radius:50%;background:rgba(225,231,238,.27);border:2px solid rgba(255,255,255,.56);pointer-events:none;}
+  #touchpad .arrow {position:absolute;color:#fff9;font-size:25px;font-weight:bold;pointer-events:none;}
+  #touchpad .up {left:78px;top:13px} #touchpad .down {left:78px;bottom:10px} #touchpad .left {left:15px;top:69px} #touchpad .right {right:14px;top:69px}
+  @media (pointer:coarse) {#touchpad{display:block} #hud{font-size:11px;white-space:pre-wrap;}}
+  @media (pointer:coarse) and (orientation:portrait) {#touchpad{left:50%;transform:translateX(-50%);bottom:max(22px,env(safe-area-inset-bottom));} }
+
 </style>
 </head>
 <body>
 <canvas id="view"></canvas>
-<div id="hud"></div>
+<div id="hud"></div>\n<div id="touchpad" aria-label="Touch movement control"><div class="disc"></div><div class="cross"></div><span class="arrow up">▲</span><span class="arrow down">▼</span><span class="arrow left">◀</span><span class="arrow right">▶</span><div class="thumb"></div></div>
 <script src="forest-map-runtime.js"></script>
 <script>
 'use strict';
@@ -26,6 +35,27 @@ const keys = new Set();
 addEventListener('keydown', e => { keys.add(e.key.length === 1 ? e.key.toLowerCase() : e.key); if (e.key === 'c') showCol = !showCol; if (e.key.startsWith('Arrow')) e.preventDefault(); });
 addEventListener('keyup', e => keys.delete(e.key.length === 1 ? e.key.toLowerCase() : e.key));
 let showCol = false;
+// Eight-direction touch D-pad, compatible with portrait and landscape. Slide without lifting to turn.
+const touchpad = document.getElementById('touchpad');
+const thumb = touchpad.querySelector('.thumb');
+let touchVector = {x:0,y:0}, activePointer = null;
+function moveTouch(e) {
+  const rect = touchpad.getBoundingClientRect();
+  const x = e.clientX-(rect.left+rect.width/2), y=e.clientY-(rect.top+rect.height/2);
+  const radius = Math.min(rect.width,rect.height)*0.38;
+  const dist = Math.hypot(x,y);
+  if(dist<13){touchVector={x:0,y:0};thumb.style.translate='0 0';return;}
+  const angle = Math.atan2(y,x), octant = Math.round(angle/(Math.PI/4));
+  touchVector={x:Math.round(Math.cos(octant*Math.PI/4)),y:Math.round(Math.sin(octant*Math.PI/4))};
+  const scale = Math.min(dist,radius)/Math.max(dist,1);
+  thumb.style.translate=(x*scale*0.55)+'px '+(y*scale*0.55)+'px';
+}
+function stopTouch(){activePointer=null;touchVector={x:0,y:0};thumb.style.translate='0 0';}
+touchpad.addEventListener('pointerdown',e=>{if(activePointer!==null)return;activePointer=e.pointerId;touchpad.setPointerCapture(e.pointerId);moveTouch(e);e.preventDefault();});
+touchpad.addEventListener('pointermove',e=>{if(e.pointerId===activePointer){moveTouch(e);e.preventDefault();}});
+for(const eventName of ['pointerup','pointercancel','lostpointercapture']) touchpad.addEventListener(eventName,e=>{if(e.pointerId===activePointer)stopTouch();});
+addEventListener('blur',stopTouch);
+
 
 // The actor: feet at (x, y), body radius r. draw() is called at the right depth by drawMap.
 const directions=['east','south-east','south','south-west','west','north-west','north','north-east'];
@@ -69,7 +99,7 @@ function createSmith(x,y){return {x,y,draw(c){const im=smithFrames[Math.floor(pe
     let dx = 0, dy = 0;
     if (keys.has('ArrowLeft') || keys.has('a')) dx--; if (keys.has('ArrowRight') || keys.has('d')) dx++;
     if (keys.has('ArrowUp') || keys.has('w')) dy--; if (keys.has('ArrowDown') || keys.has('s')) dy++;
-    hero.moving=!!(dx||dy);
+    dx += touchVector.x; dy += touchVector.y;\n    dx=Math.max(-1,Math.min(1,dx)); dy=Math.max(-1,Math.min(1,dy));\n    hero.moving=!!(dx||dy);
     if(hero.moving)hero.animTime+=dt;else hero.animTime=0;
     if ((dx || dy) && !busy) {
       const len = Math.hypot(dx, dy);
@@ -87,7 +117,7 @@ function createSmith(x,y){return {x,y,draw(c){const im=smithFrames[Math.floor(pe
     kit.drawMap(ctx, map, cam, cell===Object.keys(world.data.cells)[0]?[hero,smith]:[hero]);
     if (showCol) kit.drawCollision(ctx, map, cam);
     hud.textContent = `LINK'S ADVENTURE | FOREST PROTOTYPE
-cell ${cell}  (${Math.round(hero.x)}, ${Math.round(hero.y)})\nWASD / arrows: move   |   C: collision overlay\nWalk through map edges to explore 4 connected forest sections`;
+cell ${cell}  (${Math.round(hero.x)}, ${Math.round(hero.y)})\nWASD / arrows / touch D-pad: move   |   C: collision overlay\nWalk through map edges to explore 4 connected forest sections`;
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
