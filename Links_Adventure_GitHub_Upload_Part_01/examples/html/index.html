@@ -55,6 +55,12 @@ function createSmith(x,y){return {x,y,draw(c){const im=smithFrames[Math.floor(pe
 (async () => {
   const world = await kit.loadWorld(WORLD, KIT);
   let cell = Object.keys(world.data.cells)[0], map = await world.cell(cell);
+  // Warm all neighboring maps without blocking play. world.cell caches in-flight and completed loads.
+  function preloadNeighbors(fromCell) {
+    const neighbors = Object.values(world.data.cells[fromCell]?.neighbours || {}).filter(Boolean);
+    for (const next of neighbors) world.cell(next).catch(err => console.warn('Neighbor preload failed:', next, err));
+  }
+  preloadNeighbors(cell);
   [hero.x, hero.y] = kit.freeNear(map, map.size / 2, map.size / 2, hero.r);
   smith=createSmith(Math.min(map.size-130,hero.x+150),Math.min(map.size-130,hero.y+80));
   let last = performance.now(), busy = false;
@@ -70,7 +76,7 @@ function createSmith(x,y){return {x,y,draw(c){const im=smithFrames[Math.floor(pe
       hero.face = Math.atan2(dy, dx);
       kit.move(map, hero, dx / len * hero.speed * dt, dy / len * hero.speed * dt);
       const t = await (busy = true, kit.travel(world, cell, hero)); busy = false;     // crossed an edge? then we are in the neighbour map now
-      if (t) { cell = t.cell; map = t.map; }
+      if (t) { cell = t.cell; map = t.map; preloadNeighbors(cell); }
     }
     // camera: the hero in the middle, clamped to the map
     view.width = Math.ceil(innerWidth / ZOOM); view.height = Math.ceil(innerHeight / ZOOM);
