@@ -1,12 +1,7 @@
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Link's Adventure — Forest Prototype</title>
-<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#17181d;color:white;font:16px system-ui}iframe{display:block;width:100%;height:100%;border:0}#status{padding:20px}</style></head>
-<body><div id="status">Loading Link's Adventure…</div><script>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Link's Adventure — Forest Prototype</title><style>body{background:#17181d;color:white;font:16px system-ui;padding:20px}</style></head><body><p>Preparing Link's Adventure…</p><script>
 (async()=>{
- // Legacy routing service worker is no longer needed. Direct URLs work on iOS and desktop.
- if('serviceWorker' in navigator){try{for(const reg of await navigator.serviceWorker.getRegistrations())await reg.unregister();}catch(e){console.warn('Service worker cleanup:',e);}}
- const iframe=document.createElement('iframe');iframe.title="Link's Adventure";iframe.setAttribute('allow','fullscreen');
- iframe.src='./Links_Adventure_GitHub_Upload_Part_01/examples/html/index.html';
- document.body.replaceChildren(iframe);
+ const destination='./Links_Adventure_GitHub_Upload_Part_01/examples/html/index.html?v=mobile-fix-3';
+ try { if('serviceWorker' in navigator){for(const reg of await navigator.serviceWorker.getRegistrations())await reg.unregister();} } catch(e){console.warn(e);}
+ location.replace(destination);
 })();
-</script></body></html>
+</script><p><a style="color:#b9dbff" href="./Links_Adventure_GitHub_Upload_Part_01/examples/html/index.html?v=mobile-fix-3">Open game directly</a></p></body></html>
