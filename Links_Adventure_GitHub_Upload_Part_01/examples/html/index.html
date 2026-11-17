@@ -85,7 +85,10 @@ let smith=null;
 function createSmith(x,y){return {x,y,draw(c){const im=smithFrames[Math.floor(performance.now()/130)%smithFrames.length];if(im?.complete&&im.naturalWidth){c.save();c.imageSmoothingEnabled=false;c.drawImage(im,this.x-58,this.y-87,116,116);c.restore();}}};}
 
 (async () => {
+  hud.textContent='Loading world definition…';
+  const worldTimeout=setTimeout(()=>{hud.textContent='World loading is taking too long. Check network or refresh.\n'+new URL(WORLD,location.href).href;},12000);
   const world = await kit.loadWorld(WORLD, KIT);
+  clearTimeout(worldTimeout);
   hud.textContent='Loading first forest section…';\n  let cell = Object.keys(world.data.cells)[0], map = await world.cell(cell);
   // Warm all neighboring maps without blocking play. world.cell caches in-flight and completed loads.
   function preloadNeighbors(fromCell) {
