@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Link's Adventure — Forest Prototype</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #17181d; color: #ddd; font: 14px/1.4 system-ui, sans-serif; overflow: hidden; }
+  canvas { display: block; width: 100vw; height: 100vh; image-rendering: pixelated; }
+  #hud { position: fixed; left: 10px; top: 8px; background: #000a; padding: 6px 10px; border-radius: 4px; white-space: pre; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="hud"></div>
+<script src="forest-map-runtime.js"></script>
+<script>
+'use strict';
+// A whole world from the tool's "Export world (.zip)", unzipped next to this page as sample/ (world.json + cells/<A1>/map.json).
+// The kit folder (tiles/, overlays/, objects/) is two levels up: this page lives in ForestMapKit/examples/html/.
+// Serve the kit folder over http (python -m http.server, VS Code Live Server, ...): browsers do not fetch json from file://.
+const WORLD = 'sample/world.json', KIT = '../../';
+const kit = ForestMapKit;
+const view = document.getElementById('view'), ctx = view.getContext('2d'), hud = document.getElementById('hud');
+const ZOOM = 0.8;                              // 1 = native pixels (a person is 63 px tall); try 0.5 to see more of the map
+const keys = new Set();
+addEventListener('keydown', e => { keys.add(e.key.length === 1 ? e.key.toLowerCase() : e.key); if (e.key === 'c') showCol = !showCol; if (e.key.startsWith('Arrow')) e.preventDefault(); });
+addEventListener('keyup', e => keys.delete(e.key.length === 1 ? e.key.toLowerCase() : e.key));
+let showCol = false;
+
+// The actor: feet at (x, y), body radius r. draw() is called at the right depth by drawMap.
+const directions=['east','south-east','south','south-west','west','north-west','north','north-east'];
+const sprites={idle:{},walk:{},run:{}};
+const loadImage=(src)=>{const img=new Image();img.src=src;return img;};
+for(const d of directions){
+ sprites.idle[d]=[loadImage(`../../sprites/hero/idle/${d}/000.png`)];
+ for(const a of ['walk','run']){
+  sprites[a][d]=Array.from({length:a==='walk'?7:8},(_,i)=>loadImage(`../../sprites/hero/${a}/${d}/${String(i).padStart(3,'0')}.png`));
+ }
+}
+const smithFrames=Array.from({length:16},(_,i)=>loadImage(`../../sprites/blacksmith/${String(i).padStart(3,'0')}.png`));
+const hero={x:627,y:627,r:13,face:Math.PI/2,speed:190,moving:false,animTime:0,
+ draw(c){
+  const index=Math.round(this.face/(Math.PI/4));
+  const dir=directions[((index%8)+8)%8];
+  const frames=sprites[this.moving?'walk':'idle'][dir];
+  const sprite=frames[this.moving?Math.floor(this.animTime*9)%frames.length:0];
+  if(sprite?.complete&&sprite.naturalWidth){
+   c.save();c.imageSmoothingEnabled=false;
+   c.drawImage(sprite,this.x-35,this.y-67,70,70);c.restore();
+  }
+ }};
+let smith=null;
+function createSmith(x,y){return {x,y,draw(c){const im=smithFrames[Math.floor(performance.now()/130)%smithFrames.length];if(im?.complete&&im.naturalWidth){c.save();c.imageSmoothingEnabled=false;c.drawImage(im,this.x-58,this.y-87,116,116);c.restore();}}};}
+
+(async () => {
+  const world = await kit.loadWorld(WORLD, KIT);
+  let cell = Object.keys(world.data.cells)[0], map = await world.cell(cell);
+  [hero.x, hero.y] = kit.freeNear(map, map.size / 2, map.size / 2, hero.r);
+  smith=createSmith(Math.min(map.size-130,hero.x+150),Math.min(map.size-130,hero.y+80));
+  let last = performance.now(), busy = false;
+  async function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    let dx = 0, dy = 0;
+    if (keys.has('ArrowLeft') || keys.has('a')) dx--; if (keys.has('ArrowRight') || keys.has('d')) dx++;
+    if (keys.has('ArrowUp') || keys.has('w')) dy--; if (keys.has('ArrowDown') || keys.has('s')) dy++;
+    hero.moving=!!(dx||dy);
+    if(hero.moving)hero.animTime+=dt;else hero.animTime=0;
+    if ((dx || dy) && !busy) {
+      const len = Math.hypot(dx, dy);
+      hero.face = Math.atan2(dy, dx);
+      kit.move(map, hero, dx / len * hero.speed * dt, dy / len * hero.speed * dt);
+      const t = await (busy = true, kit.travel(world, cell, hero)); busy = false;     // crossed an edge? then we are in the neighbour map now
+      if (t) { cell = t.cell; map = t.map; }
+    }
+    // camera: the hero in the middle, clamped to the map
+    view.width = Math.ceil(innerWidth / ZOOM); view.height = Math.ceil(innerHeight / ZOOM);
+    const cam = { x: Math.max(0, Math.min(map.size - view.width, hero.x - view.width / 2)), y: Math.max(0, Math.min(map.size - view.height, hero.y - view.height / 2)) };
+    if (view.width >= map.size) cam.x = (map.size - view.width) / 2;
+    if (view.height >= map.size) cam.y = (map.size - view.height) / 2;
+    ctx.fillStyle = '#0d0e11'; ctx.fillRect(0, 0, view.width, view.height);
+    kit.drawMap(ctx, map, cam, cell===Object.keys(world.data.cells)[0]?[hero,smith]:[hero]);
+    if (showCol) kit.drawCollision(ctx, map, cam);
+    hud.textContent = `LINK'S ADVENTURE | FOREST PROTOTYPE
+cell ${cell}  (${Math.round(hero.x)}, ${Math.round(hero.y)})\nWASD / arrows: move   |   C: collision overlay\nWalk through map edges to explore 4 connected forest sections`;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})().catch(e => { hud.textContent = 'Could not start: ' + e.message + '\nRun START_WINDOWS.bat (or serve this folder over HTTP).'; console.error(e); });
+</script>
+</body>
+</html>
