@@ -1,7 +1,8 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
 <title>Link's Adventure — Forest Prototype</title>
 <style>
   html, body { margin: 0; height: 100%; background: #17181d; color: #ddd; font: 14px/1.4 system-ui, sans-serif; overflow: hidden; }
@@ -20,7 +21,8 @@
 </head>
 <body>
 <canvas id="view"></canvas>
-<div id="hud"></div>\n<div id="touchpad" aria-label="Touch movement control"><div class="disc"></div><div class="cross"></div><span class="arrow up">▲</span><span class="arrow down">▼</span><span class="arrow left">◀</span><span class="arrow right">▶</span><div class="thumb"></div></div>
+<div id="hud"></div>
+<div id="touchpad" aria-label="Touch movement control"><div class="disc"></div><div class="cross"></div><span class="arrow up">▲</span><span class="arrow down">▼</span><span class="arrow left">◀</span><span class="arrow right">▶</span><div class="thumb"></div></div>
 <script src="forest-map-runtime.js"></script>
 <script>
 'use strict';
@@ -30,7 +32,7 @@
 const WORLD = 'sample/world.json', KIT = '../../';
 const kit = ForestMapKit;
 const view = document.getElementById('view'), ctx = view.getContext('2d'), hud = document.getElementById('hud');
-const ZOOM = 0.8;                              // 1 = native pixels (a person is 63 px tall); try 0.5 to see more of the map
+const ZOOM = matchMedia('(pointer:coarse)').matches ? 0.7 : 0.8;                              // 1 = native pixels (a person is 63 px tall); try 0.5 to see more of the map
 const keys = new Set();
 addEventListener('keydown', e => { keys.add(e.key.length === 1 ? e.key.toLowerCase() : e.key); if (e.key === 'c') showCol = !showCol; if (e.key.startsWith('Arrow')) e.preventDefault(); });
 addEventListener('keyup', e => keys.delete(e.key.length === 1 ? e.key.toLowerCase() : e.key));
@@ -109,7 +111,7 @@ function createSmith(x,y){return {x,y,draw(c){const im=smithFrames[Math.floor(pe
       if (t) { cell = t.cell; map = t.map; preloadNeighbors(cell); }
     }
     // camera: the hero in the middle, clamped to the map
-    view.width = Math.ceil(innerWidth / ZOOM); view.height = Math.ceil(innerHeight / ZOOM);
+    const viewportWidth = document.documentElement.clientWidth || innerWidth;\n    const viewportHeight = document.documentElement.clientHeight || innerHeight;\n    const targetWidth = Math.ceil(viewportWidth / ZOOM), targetHeight = Math.ceil(viewportHeight / ZOOM);\n    if(view.width!==targetWidth || view.height!==targetHeight){view.width=targetWidth;view.height=targetHeight;}
     const cam = { x: Math.max(0, Math.min(map.size - view.width, hero.x - view.width / 2)), y: Math.max(0, Math.min(map.size - view.height, hero.y - view.height / 2)) };
     if (view.width >= map.size) cam.x = (map.size - view.width) / 2;
     if (view.height >= map.size) cam.y = (map.size - view.height) / 2;
