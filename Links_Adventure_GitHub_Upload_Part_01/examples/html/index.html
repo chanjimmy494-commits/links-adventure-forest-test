@@ -23,7 +23,8 @@
 <canvas id="view"></canvas>
 <div id="hud">Loading forest map and artwork…</div>
 <div id="touchpad" aria-label="Touch movement control"><div class="disc"></div><div class="cross"></div><span class="arrow up">▲</span><span class="arrow down">▼</span><span class="arrow left">◀</span><span class="arrow right">▶</span><div class="thumb"></div></div>
-<script src="../../../asset-paths.js"></script>\n<script src="forest-map-runtime.js"></script>
+<script src="../../../asset-paths.js"></script>
+<script src="forest-map-runtime.js"></script>
 <script>
 'use strict';
 // A whole world from the tool's "Export world (.zip)", unzipped next to this page as sample/ (world.json + cells/<A1>/map.json).
@@ -32,7 +33,9 @@
 const WORLD = 'sample/world.json', KIT = '../../';
 const kit = ForestMapKit;
 const view = document.getElementById('view'), ctx = view.getContext('2d'), hud = document.getElementById('hud');
-const ZOOM = matchMedia('(pointer:coarse)').matches ? 0.7 : 0.8;\nwindow.addEventListener('error',e=>{hud.textContent='Game error: '+e.message;});\nwindow.addEventListener('unhandledrejection',e=>{hud.textContent='Loading error: '+String(e.reason?.message||e.reason);});                              // 1 = native pixels (a person is 63 px tall); try 0.5 to see more of the map
+const ZOOM = matchMedia('(pointer:coarse)').matches ? 0.7 : 0.8;
+window.addEventListener('error',e=>{hud.textContent='Game error: '+e.message;});
+window.addEventListener('unhandledrejection',e=>{hud.textContent='Loading error: '+String(e.reason?.message||e.reason);});                              // 1 = native pixels (a person is 63 px tall); try 0.5 to see more of the map
 const keys = new Set();
 addEventListener('keydown', e => { keys.add(e.key.length === 1 ? e.key.toLowerCase() : e.key); if (e.key === 'c') showCol = !showCol; if (e.key.startsWith('Arrow')) e.preventDefault(); });
 addEventListener('keyup', e => keys.delete(e.key.length === 1 ? e.key.toLowerCase() : e.key));
@@ -86,16 +89,18 @@ function createSmith(x,y){return {x,y,draw(c){const im=smithFrames[Math.floor(pe
 
 (async () => {
   hud.textContent='Loading world definition…';
-  const worldTimeout=setTimeout(()=>{hud.textContent='World loading is taking too long. Check network or refresh.\n'+new URL(WORLD,location.href).href;},12000);
+  const worldTimeout=setTimeout(()=>{hud.textContent='World loading is taking too long. Check network or refresh.\\n'+new URL(WORLD,location.href).href;},12000);
   const world = await kit.loadWorld(WORLD, KIT);
   clearTimeout(worldTimeout);
-  hud.textContent='Loading first forest section…';\n  let cell = Object.keys(world.data.cells)[0], map = await world.cell(cell);
+  hud.textContent='Loading first forest section…';
+  let cell = Object.keys(world.data.cells)[0], map = await world.cell(cell);
   // Warm all neighboring maps without blocking play. world.cell caches in-flight and completed loads.
   function preloadNeighbors(fromCell) {
     const neighbors = Object.values(world.data.cells[fromCell]?.neighbours || {}).filter(Boolean);
     for (const next of neighbors) world.cell(next).catch(err => console.warn('Neighbor preload failed:', next, err));
   }
-  // Avoid concurrent map decoding on memory-constrained mobile devices.\n  if(!matchMedia('(pointer:coarse)').matches) preloadNeighbors(cell);
+  // Avoid concurrent map decoding on memory-constrained mobile devices.
+  if(!matchMedia('(pointer:coarse)').matches) preloadNeighbors(cell);
   [hero.x, hero.y] = kit.freeNear(map, map.size / 2, map.size / 2, hero.r);
   smith=createSmith(Math.min(map.size-130,hero.x+150),Math.min(map.size-130,hero.y+80));
   let last = performance.now(), busy = false;
@@ -104,7 +109,9 @@ function createSmith(x,y){return {x,y,draw(c){const im=smithFrames[Math.floor(pe
     let dx = 0, dy = 0;
     if (keys.has('ArrowLeft') || keys.has('a')) dx--; if (keys.has('ArrowRight') || keys.has('d')) dx++;
     if (keys.has('ArrowUp') || keys.has('w')) dy--; if (keys.has('ArrowDown') || keys.has('s')) dy++;
-    dx += touchVector.x; dy += touchVector.y;\n    dx=Math.max(-1,Math.min(1,dx)); dy=Math.max(-1,Math.min(1,dy));\n    hero.moving=!!(dx||dy);
+    dx += touchVector.x; dy += touchVector.y;
+    dx=Math.max(-1,Math.min(1,dx)); dy=Math.max(-1,Math.min(1,dy));
+    hero.moving=!!(dx||dy);
     if(hero.moving)hero.animTime+=dt;else hero.animTime=0;
     if ((dx || dy) && !busy) {
       const len = Math.hypot(dx, dy);
@@ -114,7 +121,10 @@ function createSmith(x,y){return {x,y,draw(c){const im=smithFrames[Math.floor(pe
       if (t) { cell = t.cell; map = t.map; if(!matchMedia('(pointer:coarse)').matches) preloadNeighbors(cell); }
     }
     // camera: the hero in the middle, clamped to the map
-    const viewportWidth = document.documentElement.clientWidth || innerWidth;\n    const viewportHeight = document.documentElement.clientHeight || innerHeight;\n    const targetWidth = Math.ceil(viewportWidth / ZOOM), targetHeight = Math.ceil(viewportHeight / ZOOM);\n    if(view.width!==targetWidth || view.height!==targetHeight){view.width=targetWidth;view.height=targetHeight;}
+    const viewportWidth = document.documentElement.clientWidth || innerWidth;
+    const viewportHeight = document.documentElement.clientHeight || innerHeight;
+    const targetWidth = Math.ceil(viewportWidth / ZOOM), targetHeight = Math.ceil(viewportHeight / ZOOM);
+    if(view.width!==targetWidth || view.height!==targetHeight){view.width=targetWidth;view.height=targetHeight;}
     const cam = { x: Math.max(0, Math.min(map.size - view.width, hero.x - view.width / 2)), y: Math.max(0, Math.min(map.size - view.height, hero.y - view.height / 2)) };
     if (view.width >= map.size) cam.x = (map.size - view.width) / 2;
     if (view.height >= map.size) cam.y = (map.size - view.height) / 2;
@@ -122,11 +132,13 @@ function createSmith(x,y){return {x,y,draw(c){const im=smithFrames[Math.floor(pe
     kit.drawMap(ctx, map, cam, cell===Object.keys(world.data.cells)[0]?[hero,smith]:[hero]);
     if (showCol) kit.drawCollision(ctx, map, cam);
     hud.textContent = `LINK'S ADVENTURE | FOREST PROTOTYPE
-cell ${cell}  (${Math.round(hero.x)}, ${Math.round(hero.y)})\nWASD / arrows / touch D-pad: move   |   C: collision overlay\nWalk through map edges to explore 4 connected forest sections`;
+cell ${cell}  (${Math.round(hero.x)}, ${Math.round(hero.y)})
+WASD / arrows / touch D-pad: move   |   C: collision overlay
+Walk through map edges to explore 4 connected forest sections`;
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
-})().catch(e => { hud.textContent = 'Could not start: ' + e.message + '\nRun START_WINDOWS.bat (or serve this folder over HTTP).'; console.error(e); });
+})().catch(e => { hud.textContent = 'Could not start: ' + e.message + '\\nRun START_WINDOWS.bat (or serve this folder over HTTP).'; console.error(e); });
 </script>
 </body>
 </html>
