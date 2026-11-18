@@ -89,7 +89,7 @@ for(const d of directions){
  }
 }
 const smithFrames=Array.from({length:16},(_,i)=>loadImage(`../../sprites/blacksmith/${String(i).padStart(3,'0')}.png`));
-const hero={x:627,y:627,r:13,face:Math.PI/2,speed:190,moving:false,animTime:0,
+const hero={x:627,y:627,r:8,face:Math.PI/2,speed:190,moving:false,animTime:0,
  draw(c){
   const index=Math.round(this.face/(Math.PI/4));
   const dir=directions[((index%8)+8)%8];
@@ -100,11 +100,7 @@ const hero={x:627,y:627,r:13,face:Math.PI/2,speed:190,moving:false,animTime:0,
    // Walk frames have more transparent padding than idle frames. Normalize their visible scale.
    // Walking: 70 -> 105 px (50% larger); idle: 70 -> 84 px to avoid an apparent size jump.
    const size=this.moving?105:84;
-   if(attackTime>0){
-     const t=1-attackTime/.32,lean=Math.sin(Math.PI*t);
-     c.translate(this.x,this.y-25);c.rotate((t-.5)*.25*lean);c.translate(-this.x,-(this.y-25));
-     c.drawImage(sprite,this.x-size/2+Math.cos(this.face)*7*lean,this.y+3-size+Math.sin(this.face)*5*lean,size,size);
-   } else c.drawImage(sprite,this.x-size/2,this.y+3-size,size,size);
+   c.drawImage(sprite,this.x-size/2,this.y+3-size,size,size);
    c.restore();
    drawSword(c,this);
   }
@@ -142,7 +138,10 @@ function createSmith(x,y){return {x,y,draw(c){const im=smithFrames[Math.floor(pe
     if ((dx || dy) && !busy) {
       const len = Math.hypot(dx, dy);
       hero.face = Math.atan2(dy, dx);
-      kit.move(map, hero, dx / len * hero.speed * dt, dy / len * hero.speed * dt);
+      const stepX=dx / len * hero.speed * dt,stepY=dy / len * hero.speed * dt;
+      // Short movement increments reduce catching on corners at low frame rates.
+      const count=Math.max(1,Math.ceil(Math.hypot(stepX,stepY)/3));
+      for(let i=0;i<count;i++)kit.move(map,hero,stepX/count,stepY/count);
       const t = await (busy = true, kit.travel(world, cell, hero)); busy = false;     // crossed an edge? then we are in the neighbour map now
       if (t) { cell = t.cell; map = t.map; if(!matchMedia('(pointer:coarse)').matches) preloadNeighbors(cell); }
     }
