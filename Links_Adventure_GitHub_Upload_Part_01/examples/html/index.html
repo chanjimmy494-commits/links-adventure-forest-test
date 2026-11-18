@@ -19,7 +19,7 @@
 
 #attack{display:none;position:fixed;right:20px;bottom:45px;width:86px;height:86px;border-radius:50%;border:2px solid #e3e9f0a8;background:#262d39b9;color:white;font:bold 15px system-ui;touch-action:none;z-index:11}
 @media(pointer:coarse){#attack{display:block}}
-@media(pointer:coarse) and (orientation:portrait){#touchpad{left:12px;transform:none;width:150px;height:150px}#attack{right:18px}}
+@media(pointer:coarse) and (orientation:portrait){#touchpad{left:12px;transform:none;width:174px;height:174px}#attack{right:18px}}
 </style>
 </head>
 <body>
@@ -45,14 +45,14 @@ addEventListener('keydown', e => { keys.add(e.key.length === 1 ? e.key.toLowerCa
 addEventListener('keyup', e => keys.delete(e.key.length === 1 ? e.key.toLowerCase() : e.key));
 let showCol = false;
 let attackTime=0,attackCooldown=0;
-function swingSword(){if(attackCooldown>0)return;attackTime=.24;attackCooldown=.34;}
+function swingSword(){if(attackCooldown>0)return;attackTime=.32;attackCooldown=.40;}
 addEventListener('keydown',e=>{if((e.code==='Space'||e.key.toLowerCase()==='j')&&!e.repeat){e.preventDefault();swingSword();}});
 document.getElementById('attack').addEventListener('pointerdown',e=>{e.preventDefault();swingSword();});
 function drawSword(c,a){
  if(attackTime<=0)return;
- const progress=1-attackTime/.24,angle=a.face-1.2+progress*2.4;
- const x=a.x+Math.cos(angle)*24,y=a.y-31+Math.sin(angle)*16;
- const tx=a.x+Math.cos(angle)*76,ty=a.y-31+Math.sin(angle)*54;
+ const progress=1-attackTime/.32,smoothed=progress*progress*(3-2*progress),angle=a.face-1.5+smoothed*2.6;
+ const x=a.x+Math.cos(a.face)*16+Math.cos(angle)*10,y=a.y-33+Math.sin(a.face)*9+Math.sin(angle)*7;
+ const reach=38+16*Math.sin(Math.PI*progress),tx=x+Math.cos(angle)*reach,ty=y+Math.sin(angle)*reach*.72;
  c.save();c.lineCap='round';c.strokeStyle='#263039';c.lineWidth=11;c.beginPath();c.moveTo(x,y);c.lineTo(tx,ty);c.stroke();
  c.strokeStyle='#e2e9ed';c.lineWidth=6;c.beginPath();c.moveTo(x,y);c.lineTo(tx,ty);c.stroke();c.restore();
 }
@@ -100,7 +100,12 @@ const hero={x:627,y:627,r:13,face:Math.PI/2,speed:190,moving:false,animTime:0,
    // Walk frames have more transparent padding than idle frames. Normalize their visible scale.
    // Walking: 70 -> 105 px (50% larger); idle: 70 -> 84 px to avoid an apparent size jump.
    const size=this.moving?105:84;
-   c.drawImage(sprite,this.x-size/2,this.y+3-size,size,size);c.restore();
+   if(attackTime>0){
+     const t=1-attackTime/.32,lean=Math.sin(Math.PI*t);
+     c.translate(this.x,this.y-25);c.rotate((t-.5)*.25*lean);c.translate(-this.x,-(this.y-25));
+     c.drawImage(sprite,this.x-size/2+Math.cos(this.face)*7*lean,this.y+3-size+Math.sin(this.face)*5*lean,size,size);
+   } else c.drawImage(sprite,this.x-size/2,this.y+3-size,size,size);
+   c.restore();
    drawSword(c,this);
   }
  }};
