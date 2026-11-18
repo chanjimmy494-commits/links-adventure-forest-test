@@ -17,12 +17,16 @@
   @media (pointer:coarse) {#touchpad{display:block} #hud{font-size:11px;white-space:pre-wrap;}}
   @media (pointer:coarse) and (orientation:portrait) {#touchpad{left:50%;transform:translateX(-50%);bottom:max(22px,env(safe-area-inset-bottom));} }
 
+#attack{display:none;position:fixed;right:20px;bottom:45px;width:86px;height:86px;border-radius:50%;border:2px solid #e3e9f0a8;background:#262d39b9;color:white;font:bold 15px system-ui;touch-action:none;z-index:11}
+@media(pointer:coarse){#attack{display:block}}
+@media(pointer:coarse) and (orientation:portrait){#touchpad{left:12px;transform:none;width:150px;height:150px}#attack{right:18px}}
 </style>
 </head>
 <body>
 <canvas id="view"></canvas>
 <div id="hud">Loading forest map and artwork…</div>
 <div id="touchpad" aria-label="Touch movement control"><div class="disc"></div><div class="cross"></div><span class="arrow up">▲</span><span class="arrow down">▼</span><span class="arrow left">◀</span><span class="arrow right">▶</span><div class="thumb"></div></div>
+<button id="attack" type="button">SWORD</button>
 <script src="../../../asset-paths.js"></script>
 <script src="forest-map-runtime.js"></script>
 <script>
@@ -40,6 +44,18 @@ const keys = new Set();
 addEventListener('keydown', e => { keys.add(e.key.length === 1 ? e.key.toLowerCase() : e.key); if (e.key === 'c') showCol = !showCol; if (e.key.startsWith('Arrow')) e.preventDefault(); });
 addEventListener('keyup', e => keys.delete(e.key.length === 1 ? e.key.toLowerCase() : e.key));
 let showCol = false;
+let attackTime=0,attackCooldown=0;
+function swingSword(){if(attackCooldown>0)return;attackTime=.24;attackCooldown=.34;}
+addEventListener('keydown',e=>{if((e.code==='Space'||e.key.toLowerCase()==='j')&&!e.repeat){e.preventDefault();swingSword();}});
+document.getElementById('attack').addEventListener('pointerdown',e=>{e.preventDefault();swingSword();});
+function drawSword(c,a){
+ if(attackTime<=0)return;
+ const progress=1-attackTime/.24,angle=a.face-1.2+progress*2.4;
+ const x=a.x+Math.cos(angle)*24,y=a.y-31+Math.sin(angle)*16;
+ const tx=a.x+Math.cos(angle)*76,ty=a.y-31+Math.sin(angle)*54;
+ c.save();c.lineCap='round';c.strokeStyle='#263039';c.lineWidth=11;c.beginPath();c.moveTo(x,y);c.lineTo(tx,ty);c.stroke();
+ c.strokeStyle='#e2e9ed';c.lineWidth=6;c.beginPath();c.moveTo(x,y);c.lineTo(tx,ty);c.stroke();c.restore();
+}
 // Eight-direction touch D-pad, compatible with portrait and landscape. Slide without lifting to turn.
 const touchpad = document.getElementById('touchpad');
 const thumb = touchpad.querySelector('.thumb');
@@ -85,6 +101,7 @@ const hero={x:627,y:627,r:13,face:Math.PI/2,speed:190,moving:false,animTime:0,
    // Walking: 70 -> 105 px (50% larger); idle: 70 -> 84 px to avoid an apparent size jump.
    const size=this.moving?105:84;
    c.drawImage(sprite,this.x-size/2,this.y+3-size,size,size);c.restore();
+   drawSword(c,this);
   }
  }};
 let smith=null;
@@ -109,6 +126,7 @@ function createSmith(x,y){return {x,y,draw(c){const im=smithFrames[Math.floor(pe
   let last = performance.now(), busy = false;
   async function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    attackTime=Math.max(0,attackTime-dt);attackCooldown=Math.max(0,attackCooldown-dt);
     let dx = 0, dy = 0;
     if (keys.has('ArrowLeft') || keys.has('a')) dx--; if (keys.has('ArrowRight') || keys.has('d')) dx++;
     if (keys.has('ArrowUp') || keys.has('w')) dy--; if (keys.has('ArrowDown') || keys.has('s')) dy++;
@@ -136,7 +154,7 @@ function createSmith(x,y){return {x,y,draw(c){const im=smithFrames[Math.floor(pe
     if (showCol) kit.drawCollision(ctx, map, cam);
     hud.textContent = `LINK'S ADVENTURE | FOREST PROTOTYPE
 cell ${cell}  (${Math.round(hero.x)}, ${Math.round(hero.y)})
-WASD / arrows / touch D-pad: move   |   C: collision overlay
+Move: WASD / arrows / D-pad   |   Sword: Space / J / touch
 Walk through map edges to explore 4 connected forest sections`;
     requestAnimationFrame(frame);
   }
