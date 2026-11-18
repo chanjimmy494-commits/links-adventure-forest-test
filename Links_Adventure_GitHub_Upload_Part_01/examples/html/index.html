@@ -81,7 +81,10 @@ const hero={x:627,y:627,r:13,face:Math.PI/2,speed:190,moving:false,animTime:0,
   const sprite=frames[this.moving?Math.floor(this.animTime*9)%frames.length:0];
   if(sprite?.complete&&sprite.naturalWidth){
    c.save();c.imageSmoothingEnabled=false;
-   c.drawImage(sprite,this.x-35,this.y-67,70,70);c.restore();
+   // Walk frames have more transparent padding than idle frames. Normalize their visible scale.
+   // Walking: 70 -> 105 px (50% larger); idle: 70 -> 84 px to avoid an apparent size jump.
+   const size=this.moving?105:84;
+   c.drawImage(sprite,this.x-size/2,this.y+3-size,size,size);c.restore();
   }
  }};
 let smith=null;
