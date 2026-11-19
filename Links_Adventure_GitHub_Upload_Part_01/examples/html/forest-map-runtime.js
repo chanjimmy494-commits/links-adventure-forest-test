@@ -68,23 +68,67 @@ const ForestMapKit = (() => {
   }
 
   // ---- collision: the actor is an oval on the ground (radius r, 1.6 x flatter in y, like a top-down body)
-  function blocked(m, x, y, r) {
-    if (x < r || y < r || x > m.size - r || y > m.size - r) return false;     // the edges are open: travel() decides what happens there
-    for (const b of m.blockers) {
-      if (x < b.box[0] - r || x > b.box[2] + r || y < b.box[1] - r || y > b.box[3] + r) continue;
-      const p = b.poly;
-      if (inPoly(x, y, p)) return true;
-      for (let i = 0; i < p.length; i++) {
-        const a = p[i], q = p[(i + 1) % p.length], dx = q[0] - a[0], dy = (q[1] - a[1]) * 1.6, px = x - a[0], py = (y - a[1]) * 1.6;
-        const t = Math.max(0, Math.min(1, (px * dx + py * dy) / (dx * dx + dy * dy || 1)));
-        if ((px - t * dx) ** 2 + (py - t * dy) ** 2 < r * r) return true;
+  const groundScaleY = 1.6;
+  function contact(m, x, y, r) {
+    if (x < r || y < r || x > m.size - r || y > m.size - r) return null;
+    let closest = null;
+    let distanceSquared = r * r;
+    for (const { box, poly } of m.blockers) {
+      if (x < box[0] - r || x > box[2] + r || y < box[1] - r || y > box[3] + r) continue;
+      const inside = inPoly(x, y, poly);
+      if (inside) return [0, 0];
+      for (let i = 0; i < poly.length; i++) {
+        const a = poly[i], b = poly[(i + 1) % poly.length];
+        const dx = b[0] - a[0], dy = (b[1] - a[1]) * groundScaleY;
+        const px = x - a[0], py = (y - a[1]) * groundScaleY;
+        const lengthSquared = dx * dx + dy * dy;
+        if (!lengthSquared) continue;
+        const t = Math.max(0, Math.min(1, (px * dx + py * dy) / lengthSquared));
+        const nx = px - t * dx, ny = py - t * dy;
+        const squared = nx * nx + ny * ny;
+        if (squared < distanceSquared) {
+          distanceSquared = squared;
+          const length = Math.sqrt(squared);
+          closest = length ? [nx / length, ny / length] : [0, 0];
+        }
       }
     }
-    return false;
+    return closest;
   }
-  function move(m, actor, dx, dy) {               // one axis at a time, so the actor slides along a wall
-    if (dx && !blocked(m, actor.x + dx, actor.y, actor.r)) actor.x += dx;
-    if (dy && !blocked(m, actor.x, actor.y + dy, actor.r)) actor.y += dy;
+
+  function blocked(m, x, y, r) {
+    return contact(m, x, y, r) !== null;
+  }
+
+  function move(m, actor, dx, dy) {
+    const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy * groundScaleY) / 2));
+    for (let i = 0; i < steps; i++) {
+      let sx = dx / steps, sy = dy / steps;
+      // Advance to contact, then spend the remaining movement along the obstacle.
+      // A second contact allows the slide to stop cleanly at intersecting blockers.
+      for (let attempt = 0; attempt < 3 && Math.hypot(sx, sy) > 0.001; attempt++) {
+        const hit = contact(m, actor.x + sx, actor.y + sy, actor.r);
+        if (!hit) {
+          actor.x += sx;
+          actor.y += sy;
+          break;
+        }
+        let clear = 0, solid = 1;
+        for (let j = 0; j < 8; j++) {
+          const fraction = (clear + solid) / 2;
+          if (blocked(m, actor.x + sx * fraction, actor.y + sy * fraction, actor.r)) solid = fraction;
+          else clear = fraction;
+        }
+        actor.x += sx * clear;
+        actor.y += sy * clear;
+        const [nx, ny] = hit;
+        const remainder = 1 - clear;
+        const inward = Math.min(0, (sx * nx + sy * groundScaleY * ny) * remainder);
+        if (!inward) break;
+        sx = sx * remainder - inward * nx;
+        sy = sy * remainder - inward * ny / groundScaleY;
+      }
+    }
   }
   function freeNear(m, x, y, r) {                 // the nearest open spot (to place an actor)
     if (!blocked(m, x, y, r)) return [x, y];

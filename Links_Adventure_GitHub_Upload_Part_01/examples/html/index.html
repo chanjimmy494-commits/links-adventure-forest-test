@@ -139,31 +139,7 @@ function createSmith(x,y){return {x,y,draw(c){const im=smithFrames[Math.floor(pe
       const len = Math.hypot(dx, dy);
       hero.face = Math.atan2(dy, dx);
       const stepX=dx / len * hero.speed * dt,stepY=dy / len * hero.speed * dt;
-      // Short movement increments reduce catching on corners at low frame rates.
-      const count=Math.max(1,Math.ceil(Math.hypot(stepX,stepY)/3));
-      for(let i=0;i<count;i++){
-        const sx=stepX/count,sy=stepY/count;
-        const px=hero.x,py=hero.y;
-        kit.move(map,hero,sx,sy);
-        // If a small obstacle blocks the requested direction, gently steer around its edge.
-        // Keep full collision checks, so the hero cannot pass through solid trees, rocks, or water.
-        if(Math.hypot(hero.x-px,hero.y-py)<Math.hypot(sx,sy)*.25){
-          const len=Math.hypot(sx,sy),angle=Math.atan2(sy,sx);
-          const candidates=[.30,-.30,.60,-.60,.95,-.95];
-          let best=null,bestScore=-Infinity;
-          for(const turn of candidates){
-            const vx=Math.cos(angle+turn)*len,vy=Math.sin(angle+turn)*len;
-            const tx=hero.x,ty=hero.y;
-            kit.move(map,hero,vx,vy);
-            const mx=hero.x-tx,my=hero.y-ty;
-            hero.x=tx;hero.y=ty;
-            const forward=(mx*sx+my*sy)/(len||1);
-            const score=forward-.08*Math.abs(turn)*len;
-            if(forward>len*.25 && score>bestScore){bestScore=score;best={mx,my};}
-          }
-          if(best){hero.x+=best.mx;hero.y+=best.my;}
-        }
-      }
+      kit.move(map, hero, stepX, stepY);
       const t = await (busy = true, kit.travel(world, cell, hero)); busy = false;     // crossed an edge? then we are in the neighbour map now
       if (t) { cell = t.cell; map = t.map; if(!matchMedia('(pointer:coarse)').matches) preloadNeighbors(cell); }
     }
